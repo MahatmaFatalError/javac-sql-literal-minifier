@@ -99,7 +99,27 @@ class SqlLiteralMinifierPluginTest {
     assertEquals("SELECT * FROM users -- keep this", staticStringField("TestSubject", "SQL"));
   }
 
-  private void compileWithPlugin(String className, String source) throws IOException {
+  @Test
+  void postgresDialectOptionPreservesDollarQuotedStrings() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT $$-- not a comment$$
+              FROM messages -- real comment
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source, "dialect=postgres");
+
+    assertEquals(
+        "SELECT $$-- not a comment$$ FROM messages", staticStringField("TestSubject", "SQL"));
+  }
+
+  private void compileWithPlugin(String className, String source, String... pluginArgs)
+      throws IOException {
     Path sourceFile = tempDir.resolve(className + ".java");
     Files.writeString(sourceFile, source, StandardCharsets.UTF_8);
 
@@ -111,7 +131,7 @@ class SqlLiteralMinifierPluginTest {
       List<String> options = List.of("-d", tempDir.toString());
       JavacTask task =
           (JavacTask) compiler.getTask(null, fileManager, null, options, null, compilationUnits);
-      new SqlLiteralMinifierPlugin().init(task);
+      new SqlLiteralMinifierPlugin().init(task, pluginArgs);
       if (!task.call()) {
         throw new AssertionError("Compilation failed for " + sourceFile);
       }

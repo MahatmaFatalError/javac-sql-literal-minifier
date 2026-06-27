@@ -3,15 +3,26 @@ package io.github.mahatmafatalerror.sqlminify;
 /** Removes SQL comments and collapses SQL whitespace outside quoted text. */
 public final class SqlMinifier {
 
+  /** SQL dialects with literal forms that affect safe minification. */
+  public enum Dialect {
+    STANDARD,
+    POSTGRES
+  }
+
   private SqlMinifier() {}
 
   /** Returns a minified SQL string while preserving quoted string and identifier contents. */
   public static String minify(String sql) {
-    String withoutComments = removeComments(sql);
-    return collapseWhitespace(withoutComments);
+    return minify(sql, Dialect.STANDARD);
   }
 
-  private static String removeComments(String sql) {
+  /** Returns a minified SQL string using dialect-specific literal handling. */
+  public static String minify(String sql, Dialect dialect) {
+    String withoutComments = removeComments(sql, dialect);
+    return collapseWhitespace(withoutComments, dialect);
+  }
+
+  private static String removeComments(String sql, Dialect dialect) {
     StringBuilder result = new StringBuilder(sql.length());
     boolean inSingleQuote = false;
     boolean inDoubleQuote = false;
@@ -42,7 +53,11 @@ public final class SqlMinifier {
         continue;
       }
 
-      if (current == '\'') {
+      int dollarQuotedStringEnd = dollarQuotedStringEnd(sql, i, dialect);
+      if (dollarQuotedStringEnd >= 0) {
+        result.append(sql, i, dollarQuotedStringEnd);
+        i = dollarQuotedStringEnd - 1;
+      } else if (current == '\'') {
         inSingleQuote = true;
         result.append(current);
       } else if (current == '"') {
@@ -79,7 +94,34 @@ public final class SqlMinifier {
     return sql.length() - 1;
   }
 
-  private static String collapseWhitespace(String sql) {
+  private static int dollarQuotedStringEnd(String sql, int start, Dialect dialect) {
+    if (dialect != Dialect.POSTGRES || sql.charAt(start) != '$') {
+      return -1;
+    }
+
+    int delimiterEnd = dollarQuoteDelimiterEnd(sql, start);
+    if (delimiterEnd < 0) {
+      return -1;
+    }
+
+    String delimiter = sql.substring(start, delimiterEnd);
+    int end = sql.indexOf(delimiter, delimiterEnd);
+    return end < 0 ? -1 : end + delimiter.length();
+  }
+
+  private static int dollarQuoteDelimiterEnd(String sql, int start) {
+    int i = start + 1;
+    while (i < sql.length() && sql.charAt(i) != '$') {
+      char current = sql.charAt(i);
+      if (!Character.isLetterOrDigit(current) && current != '_') {
+        return -1;
+      }
+      i++;
+    }
+    return i < sql.length() ? i + 1 : -1;
+  }
+
+  private static String collapseWhitespace(String sql, Dialect dialect) {
     StringBuilder result = new StringBuilder(sql.length());
     boolean inSingleQuote = false;
     boolean inDoubleQuote = false;
@@ -111,7 +153,15 @@ public final class SqlMinifier {
         continue;
       }
 
-      if (Character.isWhitespace(current)) {
+      int dollarQuotedStringEnd = dollarQuotedStringEnd(sql, i, dialect);
+      if (dollarQuotedStringEnd >= 0) {
+        if (pendingWhitespace) {
+          result.append(' ');
+          pendingWhitespace = false;
+        }
+        result.append(sql, i, dollarQuotedStringEnd);
+        i = dollarQuotedStringEnd - 1;
+      } else if (Character.isWhitespace(current)) {
         pendingWhitespace = result.length() > 0;
       } else {
         if (pendingWhitespace) {

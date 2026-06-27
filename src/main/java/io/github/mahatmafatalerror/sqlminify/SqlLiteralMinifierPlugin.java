@@ -11,6 +11,7 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCLiteral;
 import com.sun.tools.javac.tree.TreeTranslator;
+import io.github.mahatmafatalerror.sqlminify.SqlMinifier.Dialect;
 import java.io.IOException;
 
 /** Java compiler plugin that minifies marked SQL text block literals before bytecode generation. */
@@ -24,15 +25,18 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
   @Override
   public void init(JavacTask task, String... args) {
     Trees trees = Trees.instance(task);
-    ((BasicJavacTask) task).addTaskListener(new MinifyingTaskListener(trees));
+    Options options = Options.parse(args);
+    ((BasicJavacTask) task).addTaskListener(new MinifyingTaskListener(trees, options));
   }
 
   private static final class MinifyingTaskListener implements TaskListener {
 
     private final Trees trees;
+    private final Options options;
 
-    private MinifyingTaskListener(Trees trees) {
+    private MinifyingTaskListener(Trees trees, Options options) {
       this.trees = trees;
+      this.options = options;
     }
 
     @Override
@@ -47,7 +51,8 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
         return;
       }
 
-      ((JCTree) compilationUnit).accept(new SqlLiteralTranslator(trees, compilationUnit, source));
+      ((JCTree) compilationUnit)
+          .accept(new SqlLiteralTranslator(trees, compilationUnit, source, options));
     }
 
     private static CharSequence source(CompilationUnitTree compilationUnit) {
@@ -64,12 +69,14 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
     private final Trees trees;
     private final CompilationUnitTree compilationUnit;
     private final CharSequence source;
+    private final Options options;
 
     private SqlLiteralTranslator(
-        Trees trees, CompilationUnitTree compilationUnit, CharSequence source) {
+        Trees trees, CompilationUnitTree compilationUnit, CharSequence source, Options options) {
       this.trees = trees;
       this.compilationUnit = compilationUnit;
       this.source = source;
+      this.options = options;
     }
 
     @Override
@@ -92,7 +99,7 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
         return;
       }
 
-      literal.value = SqlMinifier.minify(sql);
+      literal.value = SqlMinifier.minify(sql, options.dialect());
     }
 
     private boolean startsWithTextBlockDelimiter(int start) {
@@ -100,6 +107,19 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
           && source.charAt(start) == '"'
           && source.charAt(start + 1) == '"'
           && source.charAt(start + 2) == '"';
+    }
+  }
+
+  private record Options(Dialect dialect) {
+
+    private static Options parse(String... args) {
+      Dialect dialect = Dialect.STANDARD;
+      for (String arg : args) {
+        if ("dialect=postgres".equalsIgnoreCase(arg)) {
+          dialect = Dialect.POSTGRES;
+        }
+      }
+      return new Options(dialect);
     }
   }
 }

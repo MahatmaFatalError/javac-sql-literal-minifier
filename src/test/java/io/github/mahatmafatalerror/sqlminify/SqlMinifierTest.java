@@ -63,4 +63,17 @@ class SqlMinifierTest {
 
     assertEquals("SELECT \"weird -- column\" FROM \"table /* name */\"", SqlMinifier.minify(sql));
   }
+
+  @Test
+  void postgresDialectPreservesCommentMarkersInsideDollarQuotedStrings() {
+    String sql =
+        """
+        SELECT $$-- not a comment/* neither */$$, $tag$/* keep */$tag$
+        FROM messages -- real comment
+        """;
+
+    assertEquals(
+        "SELECT $$-- not a comment/* neither */$$, $tag$/* keep */$tag$ FROM messages",
+        SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+  }
 }
