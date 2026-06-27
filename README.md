@@ -22,7 +22,7 @@ String sql = //language=sql
 compile as if the literal value were:
 
 ```sql
-SELECT * FROM users WHERE active = true
+SELECT * FROM users WHERE active=true
 ```
 
 Ordinary string literals are not transformed, even when they are marked. Only Java text blocks are
@@ -82,16 +82,60 @@ javac -cp target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
   Example.java
 ```
 
-In Maven, pass the same compiler argument through `maven-compiler-plugin`:
+Plugin options are appended after the plugin name:
+
+```bash
+javac -cp target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
+  '-Xplugin:SqlLiteralMinifier dialect=postgres report' \
+  Example.java
+```
+
+Supported options:
+
+- `dialect=postgres`: preserves PostgreSQL dollar-quoted strings while removing comments and
+  whitespace elsewhere.
+- `report`: prints a compiler note with the number of minified SQL text blocks and saved
+  characters.
+
+If a marked SQL text block contains an unsafe construct such as an unclosed block comment, quote,
+or PostgreSQL dollar-quoted string, the plugin leaves that literal unchanged and prints a skip
+message.
+
+In Maven, pass the compiler arguments through `maven-compiler-plugin`:
 
 ```xml
 <compilerArgs>
-  <arg>-Xplugin:SqlLiteralMinifier</arg>
+  <arg>--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+  <arg>--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+  <arg>--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+  <arg>-Xplugin:SqlLiteralMinifier dialect=postgres report</arg>
 </compilerArgs>
 ```
 
-Because the plugin uses `javac` internals, consumers may also need the same `jdk.compiler`
-`--add-exports` options configured by this project.
+In Gradle, add the plugin jar to the compiler classpath and pass the same `javac` arguments:
+
+```kotlin
+val sqlLiteralMinifier by configurations.creating
+
+dependencies {
+    sqlLiteralMinifier("io.github.mahatmafatalerror:javac-sql-literal-minifier:0.1.0-SNAPSHOT")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.addAll(
+        listOf(
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "-Xplugin:SqlLiteralMinifier dialect=postgres report",
+        )
+    )
+    classpath = files(classpath, sqlLiteralMinifier)
+}
+```
+
+Because the plugin uses `javac` internals, consumers may need to keep these `jdk.compiler`
+`--add-exports` options aligned with the JDK and plugin version they compile with.
 
 ## Development
 
