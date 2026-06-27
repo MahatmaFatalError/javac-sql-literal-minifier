@@ -124,6 +124,20 @@ class SqlMinifierTest {
   }
 
   @Test
+  void handlesCrOnlyLineComments() {
+    String sql = "SELECT 1 -- comment\rFROM dual\rWHERE enabled != false";
+
+    assertEquals("SELECT 1 FROM dual WHERE enabled!=false", SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void removesBlockCommentsAtEndOfSql() {
+    String sql = "SELECT 1 /* trailing block comment */";
+
+    assertEquals("SELECT 1", SqlMinifier.minify(sql));
+  }
+
+  @Test
   void postgresDialectPreservesTaggedDollarQuotedFunctionBody() {
     String sql =
         """
@@ -203,6 +217,30 @@ class SqlMinifierTest {
     assertEquals(
         "SELECT $$not a postgres string in standard dialect$$ FROM messages",
         SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void postgresDialectPreservesDollarQuotedStringAfterTokenWhitespace() {
+    String sql =
+        """
+        SELECT $$value with -- comment marker$$
+        """;
+
+    assertEquals(
+        "SELECT $$value with -- comment marker$$",
+        SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+  }
+
+  @Test
+  void removesWhitespaceAroundLessThanOrEqualOperator() {
+    String sql =
+        """
+        SELECT *
+        FROM scores
+        WHERE score <= 10
+        """;
+
+    assertEquals("SELECT * FROM scores WHERE score<=10", SqlMinifier.minify(sql));
   }
 
   @Test

@@ -139,6 +139,42 @@ class SqlLiteralMinifierPluginTest {
   }
 
   @Test
+  void reportOptionCountsMultipleMinifiedAndSkippedTextBlocks() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String FIRST = //language=sql
+              \"""
+              SELECT *
+              FROM users -- remove
+              WHERE active = true
+              \""";
+          public static final String SECOND = //language=sql
+              \"""
+              SELECT id
+              FROM accounts -- remove
+              WHERE deleted != true
+              \""";
+          public static final String UNSAFE_ONE = //language=sql
+              \"""
+              SELECT 1 /* keep this fragment
+              FROM dual
+              \""";
+          public static final String UNSAFE_TWO = //language=sql
+              \"""
+              SELECT 'unterminated -- keep this fragment
+              FROM dual
+              \""";
+        }
+        """;
+
+    String output = compileWithPluginOutput("TestSubject", source, "report");
+
+    assertTrue(output.contains("SqlLiteralMinifier: minified 2 SQL text block(s), saved "));
+    assertTrue(output.contains("SqlLiteralMinifier: skipped unsafe SQL text block(s): 2"));
+  }
+
+  @Test
   void unsafeSqlTextBlockIsLeftUnchangedAndReported() throws Exception {
     String source =
         """

@@ -184,4 +184,33 @@ class LanguageSqlMarkerTest {
 
     assertTrue(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
   }
+
+  @Test
+  void detectsMarkerOnPreviousCrOnlyLine() {
+    String source = "class Test {\r  // language=SQL\r  String sql = \"\"\"SELECT 1\"\"\";\r}";
+
+    assertTrue(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
+  }
+
+  @Test
+  void detectsSameLineMarkerAtBeginningOfSource() {
+    String source = "String sql = //language=sql \"\"\"SELECT 1\"\"\";";
+
+    assertTrue(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
+  }
+
+  @Test
+  void ignoresLanguageMarkerWithoutLanguageId() {
+    String source =
+        """
+        class Test {
+          // language =
+          String sql = \"""
+              SELECT 1
+              \""";
+        }
+        """;
+
+    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
+  }
 }
