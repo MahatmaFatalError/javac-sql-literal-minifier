@@ -59,6 +59,11 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
       MinificationStats stats = new MinificationStats();
       ((JCTree) compilationUnit)
           .accept(new SqlLiteralTranslator(trees, compilationUnit, source, options, stats));
+      if (stats.skipped() > 0) {
+        log.printRawLines(
+            Log.WriterKind.NOTICE,
+            "SqlLiteralMinifier: skipped unsafe SQL text block(s): " + stats.skipped());
+      }
       if (options.report() && stats.textBlocks() > 0) {
         log.printRawLines(
             Log.WriterKind.NOTICE,
@@ -120,10 +125,12 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
         return;
       }
 
-      String minified = SqlMinifier.minify(sql, options.dialect());
-      literal.value = minified;
-      if (!sql.equals(minified)) {
-        stats.record(sql, minified);
+      SqlMinifier.Minification minification = SqlMinifier.minifySafely(sql, options.dialect());
+      literal.value = minification.sql();
+      if (!minification.safe()) {
+        stats.recordSkipped();
+      } else if (!sql.equals(minification.sql())) {
+        stats.record(sql, minification.sql());
       }
     }
 
@@ -139,10 +146,15 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
 
     private int textBlocks;
     private int savedCharacters;
+    private int skipped;
 
     private void record(String original, String minified) {
       textBlocks++;
       savedCharacters += original.length() - minified.length();
+    }
+
+    private void recordSkipped() {
+      skipped++;
     }
 
     private int textBlocks() {
@@ -151,6 +163,10 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
 
     private int savedCharacters() {
       return savedCharacters;
+    }
+
+    private int skipped() {
+      return skipped;
     }
   }
 

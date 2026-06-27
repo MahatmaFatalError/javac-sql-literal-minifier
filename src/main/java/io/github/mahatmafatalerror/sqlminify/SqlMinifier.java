@@ -18,8 +18,70 @@ public final class SqlMinifier {
 
   /** Returns a minified SQL string using dialect-specific literal handling. */
   public static String minify(String sql, Dialect dialect) {
+    return minifySafely(sql, dialect).sql();
+  }
+
+  static Minification minifySafely(String sql, Dialect dialect) {
+    if (isUnsafe(sql, dialect)) {
+      return new Minification(sql, false);
+    }
     String withoutComments = removeComments(sql, dialect);
-    return collapseWhitespace(withoutComments, dialect);
+    return new Minification(collapseWhitespace(withoutComments, dialect), true);
+  }
+
+  record Minification(String sql, boolean safe) {}
+
+  private static boolean isUnsafe(String sql, Dialect dialect) {
+    boolean inSingleQuote = false;
+    boolean inDoubleQuote = false;
+
+    for (int i = 0; i < sql.length(); i++) {
+      char current = sql.charAt(i);
+      char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+
+      if (inSingleQuote) {
+        if (current == '\'' && next == '\'') {
+          i++;
+        } else if (current == '\'') {
+          inSingleQuote = false;
+        }
+        continue;
+      }
+
+      if (inDoubleQuote) {
+        if (current == '"' && next == '"') {
+          i++;
+        } else if (current == '"') {
+          inDoubleQuote = false;
+        }
+        continue;
+      }
+
+      int dollarQuoteDelimiterEnd =
+          dialect == Dialect.POSTGRES && current == '$' ? dollarQuoteDelimiterEnd(sql, i) : -1;
+      if (dollarQuoteDelimiterEnd >= 0) {
+        String delimiter = sql.substring(i, dollarQuoteDelimiterEnd);
+        int end = sql.indexOf(delimiter, dollarQuoteDelimiterEnd);
+        if (end < 0) {
+          return true;
+        }
+        i = end + delimiter.length() - 1;
+      } else if (current == '\'') {
+        inSingleQuote = true;
+      } else if (current == '"') {
+        inDoubleQuote = true;
+      } else if (current == '/' && next == '*') {
+        int end = sql.indexOf("*/", i + 2);
+        if (end < 0) {
+          return true;
+        }
+        i = end + 1;
+      } else if (current == '-' && next == '-') {
+        i = skipLineComment(sql, i + 2);
+      }
+    }
+
+    return inSingleQuote || inDoubleQuote;
   }
 
   private static String removeComments(String sql, Dialect dialect) {

@@ -137,6 +137,30 @@ class SqlLiteralMinifierPluginTest {
     assertEquals(true, output.contains("SqlLiteralMinifier: minified 1 SQL text block(s), saved "));
   }
 
+  @Test
+  void unsafeSqlTextBlockIsLeftUnchangedAndReported() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT 1 /* keep this fragment
+              FROM dual
+              \""";
+        }
+        """;
+
+    String output = compileWithPluginOutput("TestSubject", source);
+
+    assertEquals(
+        """
+        SELECT 1 /* keep this fragment
+        FROM dual
+        """,
+        staticStringField("TestSubject", "SQL"));
+    assertEquals(true, output.contains("SqlLiteralMinifier: skipped unsafe SQL text block"));
+  }
+
   private void compileWithPlugin(String className, String source, String... pluginArgs)
       throws IOException {
     Path sourceFile = tempDir.resolve(className + ".java");

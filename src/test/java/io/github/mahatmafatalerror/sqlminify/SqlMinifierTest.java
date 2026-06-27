@@ -93,4 +93,26 @@ class SqlMinifierTest {
         "SELECT id,name FROM users WHERE id=? AND status IN(?,?) AND score>=10 AND deleted<>true",
         SqlMinifier.minify(sql));
   }
+
+  @Test
+  void leavesSqlUnchangedWhenBlockCommentIsUnclosed() {
+    String sql =
+        """
+        SELECT 1 /* keep this fragment
+        FROM dual
+        """;
+
+    assertEquals(sql, SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void leavesPostgresSqlUnchangedWhenDollarQuotedStringIsUnclosed() {
+    String sql =
+        """
+        SELECT $$-- not a comment
+        FROM messages
+        """;
+
+    assertEquals(sql, SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+  }
 }
