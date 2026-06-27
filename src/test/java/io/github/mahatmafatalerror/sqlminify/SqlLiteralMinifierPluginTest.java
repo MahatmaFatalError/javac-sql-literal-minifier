@@ -239,6 +239,24 @@ class SqlLiteralMinifierPluginTest {
   }
 
   @Test
+  void unknownDialectOptionFallsBackToStandardDialect() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT $$-- treated as a standard string$$
+              FROM messages -- real comment
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source, "dialect=unknown");
+
+    assertEquals("SELECT $$ FROM messages", staticStringField("TestSubject", "SQL"));
+  }
+
+  @Test
   void reportOptionDoesNotPrintWhenNoTextBlocksChanged() throws Exception {
     String source =
         """
