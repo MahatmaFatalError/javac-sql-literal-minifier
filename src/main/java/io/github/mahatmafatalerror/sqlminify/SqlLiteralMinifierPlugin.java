@@ -11,6 +11,7 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCLiteral;
 import com.sun.tools.javac.tree.TreeTranslator;
+import com.sun.tools.javac.util.Log;
 import io.github.mahatmafatalerror.sqlminify.SqlMinifier.Dialect;
 import java.io.IOException;
 
@@ -24,18 +25,22 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
 
   @Override
   public void init(JavacTask task, String... args) {
+    BasicJavacTask basicTask = (BasicJavacTask) task;
     Trees trees = Trees.instance(task);
     Options options = Options.parse(args);
-    ((BasicJavacTask) task).addTaskListener(new MinifyingTaskListener(trees, options));
+    Log log = Log.instance(basicTask.getContext());
+    basicTask.addTaskListener(new MinifyingTaskListener(trees, log, options));
   }
 
   private static final class MinifyingTaskListener implements TaskListener {
 
     private final Trees trees;
+    private final Log log;
     private final Options options;
 
-    private MinifyingTaskListener(Trees trees, Options options) {
+    private MinifyingTaskListener(Trees trees, Log log, Options options) {
       this.trees = trees;
+      this.log = log;
       this.options = options;
     }
 
@@ -51,8 +56,18 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
         return;
       }
 
+      MinificationStats stats = new MinificationStats();
       ((JCTree) compilationUnit)
-          .accept(new SqlLiteralTranslator(trees, compilationUnit, source, options));
+          .accept(new SqlLiteralTranslator(trees, compilationUnit, source, options, stats));
+      if (options.report() && stats.textBlocks() > 0) {
+        log.printRawLines(
+            Log.WriterKind.NOTICE,
+            "SqlLiteralMinifier: minified "
+                + stats.textBlocks()
+                + " SQL text block(s), saved "
+                + stats.savedCharacters()
+                + " character(s)");
+      }
     }
 
     private static CharSequence source(CompilationUnitTree compilationUnit) {
@@ -70,13 +85,19 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
     private final CompilationUnitTree compilationUnit;
     private final CharSequence source;
     private final Options options;
+    private final MinificationStats stats;
 
     private SqlLiteralTranslator(
-        Trees trees, CompilationUnitTree compilationUnit, CharSequence source, Options options) {
+        Trees trees,
+        CompilationUnitTree compilationUnit,
+        CharSequence source,
+        Options options,
+        MinificationStats stats) {
       this.trees = trees;
       this.compilationUnit = compilationUnit;
       this.source = source;
       this.options = options;
+      this.stats = stats;
     }
 
     @Override
@@ -99,7 +120,11 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
         return;
       }
 
-      literal.value = SqlMinifier.minify(sql, options.dialect());
+      String minified = SqlMinifier.minify(sql, options.dialect());
+      literal.value = minified;
+      if (!sql.equals(minified)) {
+        stats.record(sql, minified);
+      }
     }
 
     private boolean startsWithTextBlockDelimiter(int start) {
@@ -110,16 +135,38 @@ public final class SqlLiteralMinifierPlugin implements Plugin {
     }
   }
 
-  private record Options(Dialect dialect) {
+  private static final class MinificationStats {
+
+    private int textBlocks;
+    private int savedCharacters;
+
+    private void record(String original, String minified) {
+      textBlocks++;
+      savedCharacters += original.length() - minified.length();
+    }
+
+    private int textBlocks() {
+      return textBlocks;
+    }
+
+    private int savedCharacters() {
+      return savedCharacters;
+    }
+  }
+
+  private record Options(Dialect dialect, boolean report) {
 
     private static Options parse(String... args) {
       Dialect dialect = Dialect.STANDARD;
+      boolean report = false;
       for (String arg : args) {
         if ("dialect=postgres".equalsIgnoreCase(arg)) {
           dialect = Dialect.POSTGRES;
+        } else if ("report".equalsIgnoreCase(arg)) {
+          report = true;
         }
       }
-      return new Options(dialect);
+      return new Options(dialect, report);
     }
   }
 }

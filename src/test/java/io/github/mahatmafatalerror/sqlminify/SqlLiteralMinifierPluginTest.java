@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.sun.source.util.JavacTask;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -117,6 +118,25 @@ class SqlLiteralMinifierPluginTest {
         "SELECT $$-- not a comment$$ FROM messages", staticStringField("TestSubject", "SQL"));
   }
 
+  @Test
+  void reportOptionPrintsMinificationSummary() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT *
+              FROM users -- only active
+              WHERE active = true
+              \""";
+        }
+        """;
+
+    String output = compileWithPluginOutput("TestSubject", source, "report");
+
+    assertEquals(true, output.contains("SqlLiteralMinifier: minified 1 SQL text block(s), saved "));
+  }
+
   private void compileWithPlugin(String className, String source, String... pluginArgs)
       throws IOException {
     Path sourceFile = tempDir.resolve(className + ".java");
@@ -135,6 +155,28 @@ class SqlLiteralMinifierPluginTest {
         throw new AssertionError("Compilation failed for " + sourceFile);
       }
     }
+  }
+
+  private String compileWithPluginOutput(String className, String source, String... pluginArgs)
+      throws IOException {
+    Path sourceFile = tempDir.resolve(className + ".java");
+    Files.writeString(sourceFile, source, StandardCharsets.UTF_8);
+
+    StringWriter output = new StringWriter();
+    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+    try (StandardJavaFileManager fileManager =
+        compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+      Iterable<? extends JavaFileObject> compilationUnits =
+          fileManager.getJavaFileObjects(sourceFile);
+      List<String> options = List.of("-d", tempDir.toString());
+      JavacTask task =
+          (JavacTask) compiler.getTask(output, fileManager, null, options, null, compilationUnits);
+      new SqlLiteralMinifierPlugin().init(task, pluginArgs);
+      if (!task.call()) {
+        throw new AssertionError("Compilation failed for " + sourceFile);
+      }
+    }
+    return output.toString();
   }
 
   private String staticStringField(String className, String fieldName) throws Exception {
