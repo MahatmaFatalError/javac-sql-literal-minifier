@@ -28,6 +28,22 @@ SELECT * FROM users WHERE active=true
 Ordinary string literals are not transformed, even when they are marked. Only Java text blocks are
 eligible.
 
+## Minification Behavior
+
+The minifier removes SQL line comments (`-- ...`) and SQL block comments (`/* ... */`), then
+collapses whitespace outside quoted text. It preserves comment markers inside single-quoted
+strings and double-quoted identifiers:
+
+```sql
+SELECT '-- not a comment', "/* also not a comment */"
+```
+
+With `dialect=postgres`, PostgreSQL dollar-quoted strings are also preserved:
+
+```sql
+SELECT $$-- not a comment /* also not a comment */$$
+```
+
 ## Supported Markers
 
 The plugin recognizes IntelliJ IDEA language injection comments for SQL text blocks:
