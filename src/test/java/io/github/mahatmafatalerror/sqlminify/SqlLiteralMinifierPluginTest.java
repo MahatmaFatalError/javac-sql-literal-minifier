@@ -162,7 +162,6 @@ class SqlLiteralMinifierPluginTest {
     assertEquals(true, output.contains("SqlLiteralMinifier: skipped unsafe SQL text block"));
   }
 
-
   @Test
   void exposesJavacPluginName() {
     assertEquals("SqlLiteralMinifier", new SqlLiteralMinifierPlugin().getName());
@@ -217,7 +216,7 @@ class SqlLiteralMinifierPluginTest {
 
     String output = compileWithPluginOutput("TestSubject", source, "report");
 
-    assertTrue(output.isBlank());
+    assertTrue(output.contains("SqlLiteralMinifier: minified 1 SQL text block(s), saved "));
   }
 
   private void compileWithPlugin(String className, String source, String... pluginArgs)

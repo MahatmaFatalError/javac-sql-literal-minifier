@@ -144,7 +144,7 @@ class LanguageSqlMarkerTest {
 
   @Test
   void ignoresLiteralAtBeginningOfSource() {
-    assertFalse(LanguageSqlMarker.isMarked(""""", 0));
+    assertFalse(LanguageSqlMarker.isMarked("\"\"\"", 0));
   }
 
   @Test
@@ -159,7 +159,7 @@ class LanguageSqlMarkerTest {
         }
         """;
 
-    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf(""""")));
+    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
   }
 
   @Test
@@ -174,14 +174,14 @@ class LanguageSqlMarkerTest {
         }
         """;
 
-    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf(""""")));
+    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
   }
 
   @Test
   void detectsMarkerOnPreviousCrLfLine() {
-    String source = "class Test {\r\n  // language=SQL\r\n  String sql = \"""SELECT 1\""";\r\n}";
+    String source =
+        "class Test {\r\n  // language=SQL\r\n  String sql = \"\"\"SELECT 1\"\"\";\r\n}";
 
-    assertTrue(LanguageSqlMarker.isMarked(source, source.indexOf(""""")));
+    assertTrue(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
   }
-
 }

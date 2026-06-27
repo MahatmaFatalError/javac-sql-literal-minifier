@@ -188,7 +188,8 @@ class SqlMinifierTest {
         FROM messages
         """;
 
-    assertEquals("SELECT $bad-tag$ FROM messages", SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+    assertEquals(
+        "SELECT $bad-tag$ FROM messages", SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
   }
 
   @Test
@@ -213,5 +214,4 @@ class SqlMinifierTest {
   void preservesTrailingSpaceInsideQuotedText() {
     assertEquals("SELECT 'kept '", SqlMinifier.minify("SELECT 'kept '   "));
   }
-
 }
