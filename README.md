@@ -6,6 +6,21 @@ It transforms only compiled constants; it does not rewrite source files. The plu
 `javac` has parsed the source and before bytecode generation, so your Java files keep their
 formatted SQL while the compiled class contains the compact string value.
 
+## Why?
+
+Formatted SQL text blocks are easier to read, review, debug, and annotate in Java source code, but
+the same formatting is often unnecessary once the query is compiled into a class file. This plugin
+lets you keep expressive SQL in source control while removing comments and excess whitespace from
+the runtime string constants.
+
+That can be useful when SQL literals are numerous, embedded in generated artifacts, exposed through
+logs or diagnostics, or simply treated as implementation details where comments and indentation
+should not ship with the compiled output.
+
+It can also make embedded queries easier to group in monitoring and observability tools: logs,
+metrics, traces, and dashboards see a more canonical query string instead of separate variants that
+only differ by formatting or comments.
+
 ## Example
 
 Marked Java text blocks:
