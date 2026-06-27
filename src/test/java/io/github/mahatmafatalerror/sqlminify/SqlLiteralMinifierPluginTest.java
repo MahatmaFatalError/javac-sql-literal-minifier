@@ -1,0 +1,129 @@
+package io.github.mahatmafatalerror.sqlminify;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.sun.source.util.JavacTask;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class SqlLiteralMinifierPluginTest {
+
+  @TempDir Path tempDir;
+
+  @Test
+  void markedTextBlockIsMinifiedInCompiledClass() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT *
+              FROM users -- only active
+              WHERE active = true
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source);
+
+    assertEquals(
+        "SELECT * FROM users WHERE active = true", staticStringField("TestSubject", "SQL"));
+  }
+
+  @Test
+  void jetbrainsSpacedMarkerIsMinifiedInCompiledClass() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          // language = SQL prefix=SELECT * FROM users WHERE suffix=ORDER BY id
+          public static final String SQL = \"""
+              active = true -- only active
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source);
+
+    assertEquals("active = true", staticStringField("TestSubject", "SQL"));
+  }
+
+  @Test
+  void unmarkedTextBlockIsNotChanged() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL =
+              \"""
+              SELECT *
+              FROM users -- only active
+              WHERE active = true
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source);
+
+    assertEquals(
+        """
+        SELECT *
+        FROM users -- only active
+        WHERE active = true
+        """,
+        staticStringField("TestSubject", "SQL"));
+  }
+
+  @Test
+  void ordinaryMarkedStringLiteralIsNotChanged() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              "SELECT * FROM users -- keep this";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source);
+
+    assertEquals("SELECT * FROM users -- keep this", staticStringField("TestSubject", "SQL"));
+  }
+
+  private void compileWithPlugin(String className, String source) throws IOException {
+    Path sourceFile = tempDir.resolve(className + ".java");
+    Files.writeString(sourceFile, source, StandardCharsets.UTF_8);
+
+    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+    try (StandardJavaFileManager fileManager =
+        compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+      Iterable<? extends JavaFileObject> compilationUnits =
+          fileManager.getJavaFileObjects(sourceFile);
+      List<String> options = List.of("-d", tempDir.toString());
+      JavacTask task =
+          (JavacTask) compiler.getTask(null, fileManager, null, options, null, compilationUnits);
+      new SqlLiteralMinifierPlugin().init(task);
+      if (!task.call()) {
+        throw new AssertionError("Compilation failed for " + sourceFile);
+      }
+    }
+  }
+
+  private String staticStringField(String className, String fieldName) throws Exception {
+    try (URLClassLoader classLoader =
+        new URLClassLoader(new URL[] {tempDir.toUri().toURL()}, null)) {
+      Class<?> subject = Class.forName(className, true, classLoader);
+      Field field = subject.getField(fieldName);
+      return (String) field.get(null);
+    }
+  }
+}
