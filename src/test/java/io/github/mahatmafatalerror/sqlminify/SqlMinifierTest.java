@@ -115,4 +115,55 @@ class SqlMinifierTest {
 
     assertEquals(sql, SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
   }
+
+  @Test
+  void handlesCrLfLineComments() {
+    String sql = "SELECT 1 -- comment\r\nFROM dual\r\nWHERE id = ?";
+
+    assertEquals("SELECT 1 FROM dual WHERE id=?", SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void postgresDialectPreservesTaggedDollarQuotedFunctionBody() {
+    String sql =
+        """
+        SELECT $function$
+        BEGIN
+          -- keep this comment inside the function body
+          RETURN '/* not a comment */';
+        END
+        $function$ -- remove this comment
+        """;
+
+    assertEquals(
+        "SELECT $function$\n"
+            + "BEGIN\n"
+            + "  -- keep this comment inside the function body\n"
+            + "  RETURN '/* not a comment */';\n"
+            + "END\n"
+            + "$function$",
+        SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+  }
+
+  @Test
+  void leavesSqlUnchangedWhenSingleQuotedStringIsUnclosed() {
+    String sql =
+        """
+        SELECT 'unterminated -- keep this fragment
+        FROM dual
+        """;
+
+    assertEquals(sql, SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void leavesSqlUnchangedWhenDoubleQuotedIdentifierIsUnclosed() {
+    String sql =
+        """
+        SELECT "unterminated -- keep this fragment
+        FROM dual
+        """;
+
+    assertEquals(sql, SqlMinifier.minify(sql));
+  }
 }
