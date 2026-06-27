@@ -166,4 +166,52 @@ class SqlMinifierTest {
 
     assertEquals(sql, SqlMinifier.minify(sql));
   }
+
+  @Test
+  void preservesEscapedDoubleQuotesInsideIdentifiers() {
+    String sql =
+        """
+        SELECT "a "" -- not a comment"
+        FROM "table "" /* not a comment */"
+        """;
+
+    assertEquals(
+        "SELECT \"a \"\" -- not a comment\" FROM \"table \"\" /* not a comment */\"",
+        SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void treatsInvalidPostgresDollarDelimiterAsOrdinarySql() {
+    String sql =
+        """
+        SELECT $bad-tag$ -- remove this comment
+        FROM messages
+        """;
+
+    assertEquals("SELECT $bad-tag$ FROM messages", SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+  }
+
+  @Test
+  void preservesPostgresDollarSignInStandardDialect() {
+    String sql =
+        """
+        SELECT $$not a postgres string in standard dialect$$ -- remove this comment
+        FROM messages
+        """;
+
+    assertEquals(
+        "SELECT $$not a postgres string in standard dialect$$ FROM messages",
+        SqlMinifier.minify(sql));
+  }
+
+  @Test
+  void returnsEmptyStringForWhitespaceOnlySql() {
+    assertEquals("", SqlMinifier.minify("   \n \t  "));
+  }
+
+  @Test
+  void preservesTrailingSpaceInsideQuotedText() {
+    assertEquals("SELECT 'kept '", SqlMinifier.minify("SELECT 'kept '   "));
+  }
+
 }

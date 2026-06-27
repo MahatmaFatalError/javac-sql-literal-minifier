@@ -1,6 +1,7 @@
 package io.github.mahatmafatalerror.sqlminify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.source.util.JavacTask;
 import java.io.IOException;
@@ -159,6 +160,64 @@ class SqlLiteralMinifierPluginTest {
         """,
         staticStringField("TestSubject", "SQL"));
     assertEquals(true, output.contains("SqlLiteralMinifier: skipped unsafe SQL text block"));
+  }
+
+
+  @Test
+  void exposesJavacPluginName() {
+    assertEquals("SqlLiteralMinifier", new SqlLiteralMinifierPlugin().getName());
+  }
+
+  @Test
+  void ordinaryNonStringLiteralsAreIgnored() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final int VALUE = 1;
+          public static final String SQL = //language=sql
+              \"""
+              SELECT 1
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source);
+
+    assertEquals("SELECT 1", staticStringField("TestSubject", "SQL"));
+  }
+
+  @Test
+  void unknownPluginOptionsAreIgnored() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT 1 -- remove
+              \""";
+        }
+        """;
+
+    compileWithPlugin("TestSubject", source, "unknown");
+
+    assertEquals("SELECT 1", staticStringField("TestSubject", "SQL"));
+  }
+
+  @Test
+  void reportOptionDoesNotPrintWhenNoTextBlocksChanged() throws Exception {
+    String source =
+        """
+        public class TestSubject {
+          public static final String SQL = //language=sql
+              \"""
+              SELECT 1
+              \""";
+        }
+        """;
+
+    String output = compileWithPluginOutput("TestSubject", source, "report");
+
+    assertTrue(output.isBlank());
   }
 
   private void compileWithPlugin(String className, String source, String... pluginArgs)

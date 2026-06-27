@@ -141,4 +141,47 @@ class LanguageSqlMarkerTest {
 
     assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf("\"\"\"")));
   }
+
+  @Test
+  void ignoresLiteralAtBeginningOfSource() {
+    assertFalse(LanguageSqlMarker.isMarked(""""", 0));
+  }
+
+  @Test
+  void ignoresCommentThatDoesNotStartWithLanguage() {
+    String source =
+        """
+        class Test {
+          //noinspection SqlResolve
+          String sql = \"""
+              SELECT 1
+              \""";
+        }
+        """;
+
+    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf(""""")));
+  }
+
+  @Test
+  void ignoresLanguageMarkerWithoutEquals() {
+    String source =
+        """
+        class Test {
+          // language SQL
+          String sql = \"""
+              SELECT 1
+              \""";
+        }
+        """;
+
+    assertFalse(LanguageSqlMarker.isMarked(source, source.indexOf(""""")));
+  }
+
+  @Test
+  void detectsMarkerOnPreviousCrLfLine() {
+    String source = "class Test {\r\n  // language=SQL\r\n  String sql = \"""SELECT 1\""";\r\n}";
+
+    assertTrue(LanguageSqlMarker.isMarked(source, source.indexOf(""""")));
+  }
+
 }
