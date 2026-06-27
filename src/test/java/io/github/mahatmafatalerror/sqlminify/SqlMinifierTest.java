@@ -15,7 +15,7 @@ class SqlMinifierTest {
         WHERE active = true
         """;
 
-    assertEquals("SELECT * FROM users WHERE active = true", SqlMinifier.minify(sql));
+    assertEquals("SELECT * FROM users WHERE active=true", SqlMinifier.minify(sql));
   }
 
   @Test
@@ -38,7 +38,7 @@ class SqlMinifierTest {
         """;
 
     assertEquals(
-        "SELECT '-- not a comment', '/* also not a comment */' FROM messages",
+        "SELECT '-- not a comment','/* also not a comment */' FROM messages",
         SqlMinifier.minify(sql));
   }
 
@@ -73,7 +73,24 @@ class SqlMinifierTest {
         """;
 
     assertEquals(
-        "SELECT $$-- not a comment/* neither */$$, $tag$/* keep */$tag$ FROM messages",
+        "SELECT $$-- not a comment/* neither */$$,$tag$/* keep */$tag$ FROM messages",
         SqlMinifier.minify(sql, SqlMinifier.Dialect.POSTGRES));
+  }
+
+  @Test
+  void removesWhitespaceAroundSafePunctuationAndComparisonOperators() {
+    String sql =
+        """
+        SELECT id , name
+        FROM users
+        WHERE id = ?
+          AND status IN ( ? , ? )
+          AND score >= 10
+          AND deleted <> true
+        """;
+
+    assertEquals(
+        "SELECT id,name FROM users WHERE id=? AND status IN(?,?) AND score>=10 AND deleted<>true",
+        SqlMinifier.minify(sql));
   }
 }

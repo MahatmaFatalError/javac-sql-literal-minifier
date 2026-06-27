@@ -121,6 +121,40 @@ public final class SqlMinifier {
     return i < sql.length() ? i + 1 : -1;
   }
 
+  private static void appendPendingWhitespaceIfNeeded(
+      StringBuilder result, boolean pendingWhitespace, char next) {
+    if (pendingWhitespace && needsWhitespace(result, next)) {
+      result.append(' ');
+    }
+  }
+
+  private static boolean needsWhitespace(StringBuilder result, char next) {
+    if (result.isEmpty()) {
+      return false;
+    }
+    char previous = result.charAt(result.length() - 1);
+    return !canOmitWhitespaceAfter(previous) && !canOmitWhitespaceBefore(next);
+  }
+
+  private static boolean canOmitWhitespaceAfter(char current) {
+    return current == ','
+        || current == '('
+        || current == '='
+        || current == '<'
+        || current == '>'
+        || current == '!';
+  }
+
+  private static boolean canOmitWhitespaceBefore(char current) {
+    return current == ','
+        || current == '('
+        || current == ')'
+        || current == '='
+        || current == '<'
+        || current == '>'
+        || current == '!';
+  }
+
   private static String collapseWhitespace(String sql, Dialect dialect) {
     StringBuilder result = new StringBuilder(sql.length());
     boolean inSingleQuote = false;
@@ -155,19 +189,15 @@ public final class SqlMinifier {
 
       int dollarQuotedStringEnd = dollarQuotedStringEnd(sql, i, dialect);
       if (dollarQuotedStringEnd >= 0) {
-        if (pendingWhitespace) {
-          result.append(' ');
-          pendingWhitespace = false;
-        }
+        appendPendingWhitespaceIfNeeded(result, pendingWhitespace, current);
+        pendingWhitespace = false;
         result.append(sql, i, dollarQuotedStringEnd);
         i = dollarQuotedStringEnd - 1;
       } else if (Character.isWhitespace(current)) {
         pendingWhitespace = result.length() > 0;
       } else {
-        if (pendingWhitespace) {
-          result.append(' ');
-          pendingWhitespace = false;
-        }
+        appendPendingWhitespaceIfNeeded(result, pendingWhitespace, current);
+        pendingWhitespace = false;
         result.append(current);
         if (current == '\'') {
           inSingleQuote = true;

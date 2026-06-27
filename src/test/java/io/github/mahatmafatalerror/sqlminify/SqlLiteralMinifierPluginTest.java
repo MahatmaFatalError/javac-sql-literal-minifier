@@ -38,8 +38,7 @@ class SqlLiteralMinifierPluginTest {
 
     compileWithPlugin("TestSubject", source);
 
-    assertEquals(
-        "SELECT * FROM users WHERE active = true", staticStringField("TestSubject", "SQL"));
+    assertEquals("SELECT * FROM users WHERE active=true", staticStringField("TestSubject", "SQL"));
   }
 
   @Test
@@ -56,7 +55,7 @@ class SqlLiteralMinifierPluginTest {
 
     compileWithPlugin("TestSubject", source);
 
-    assertEquals("active = true", staticStringField("TestSubject", "SQL"));
+    assertEquals("active=true", staticStringField("TestSubject", "SQL"));
   }
 
   @Test
