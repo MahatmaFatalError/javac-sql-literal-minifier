@@ -13,6 +13,10 @@
   <artifactId>sql-minifier-integration-tests</artifactId>
   <name>SQL Minifier Integration Tests</name>
 
+  <properties>
+    <jacoco.skip>true</jacoco.skip>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
