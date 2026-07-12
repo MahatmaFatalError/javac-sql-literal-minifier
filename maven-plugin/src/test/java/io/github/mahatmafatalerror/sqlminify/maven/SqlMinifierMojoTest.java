@@ -47,6 +47,17 @@ class SqlMinifierMojoTest {
     assertEquals("SELECT *\nFROM users -- keep\n", Files.readString(sql));
   }
 
+  @Test
+  void configuresPostgresDialectForResourceFiles() throws Exception {
+    Path sql = write("classes/db/query.sql", "SELECT $$-- not a comment\n/* keep */$$\n");
+    SqlMinifierMojo mojo = mojo(tempDir.resolve("classes").toFile());
+    mojo.dialect = "postgres";
+
+    mojo.execute();
+
+    assertEquals("SELECT $$-- not a comment\n/* keep */$$", Files.readString(sql));
+  }
+
   private SqlMinifierMojo mojo(File outputDirectory) {
     SqlMinifierMojo mojo = new SqlMinifierMojo();
     mojo.outputDirectory = outputDirectory;

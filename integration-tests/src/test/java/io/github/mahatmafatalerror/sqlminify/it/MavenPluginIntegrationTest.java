@@ -37,20 +37,23 @@ class MavenPluginIntegrationTest {
                 <groupId>io.github.mahatmafatalerror</groupId>
                 <artifactId>sql-minifier-maven-plugin</artifactId>
                 <version>%s</version>
-                <executions>
-                  <execution>
-                    <goals>
-                      <goal>resources</goal>
-                    </goals>
-                  </execution>
-                </executions>
-              </plugin>
-            </plugins>
-          </build>
-        </project>
-        """
+	                <executions>
+	                  <execution>
+	                    <goals>
+	                      <goal>resources</goal>
+	                    </goals>
+	                  </execution>
+	                </executions>
+	                <configuration>
+	                  <dialect>postgres</dialect>
+	                </configuration>
+	              </plugin>
+	            </plugins>
+	          </build>
+	        </project>
+	        """
             .formatted(System.getProperty("project.version")));
-    write("src/main/resources/db/query.sql", "SELECT *\nFROM users -- comment\n");
+    write("src/main/resources/db/query.sql", "SELECT $$-- not a comment\n/* keep */$$\n");
 
     Process process =
         new ProcessBuilder("mvn", "-q", "process-classes")
@@ -63,10 +66,10 @@ class MavenPluginIntegrationTest {
     assertTrue(exited, "Maven process did not finish. Output:\n" + output);
     assertEquals(0, process.exitValue(), output);
     assertEquals(
-        "SELECT * FROM users",
+        "SELECT $$-- not a comment\n/* keep */$$",
         Files.readString(projectDirectory.resolve("target/classes/db/query.sql")));
     assertEquals(
-        "SELECT *\nFROM users -- comment\n",
+        "SELECT $$-- not a comment\n/* keep */$$\n",
         Files.readString(projectDirectory.resolve("src/main/resources/db/query.sql")));
   }
 

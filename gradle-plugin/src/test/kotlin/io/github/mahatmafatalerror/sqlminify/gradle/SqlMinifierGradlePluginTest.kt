@@ -82,6 +82,33 @@ class SqlMinifierGradlePluginTest {
         )
     }
 
+    @Test
+    fun `configures postgres dialect from kotlin dsl project`() {
+        write("settings.gradle.kts", "rootProject.name = \"sample-postgres\"\n")
+        write(
+            "build.gradle.kts",
+            """
+            plugins {
+                java
+                id("io.github.mahatmafatalerror.sql-minifier")
+            }
+
+            sqlMinifier {
+                dialect.set("postgres")
+            }
+            """.trimIndent(),
+        )
+        write("src/main/resources/db/query.sql", "SELECT $$-- not a comment\n/* keep */$$\n")
+
+        val result = gradle("minifySqlResources")
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":minifySqlResources")?.outcome)
+        assertEquals(
+            "SELECT $$-- not a comment\n/* keep */$$",
+            Files.readString(projectDir.resolve("build/resources/main/db/query.sql")),
+        )
+    }
+
     private fun gradle(vararg arguments: String) =
         GradleRunner.create()
             .withProjectDir(projectDir.toFile())

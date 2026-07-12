@@ -75,6 +75,19 @@ class SqlFileMinifierTest {
   }
 
   @Test
+  void preservesPostgresDollarQuotedStringsWhenDialectIsConfigured() throws IOException {
+    Path sql = write("query.sql", "SELECT $$-- not a comment\n/* also not a comment */$$\n");
+
+    SqlFileMinifier.Result result =
+        SqlFileMinifier.minifyDirectory(
+            tempDir, List.of("**/*.sql", "*.sql"), List.of(), SqlMinifier.Dialect.POSTGRES);
+
+    assertEquals("SELECT $$-- not a comment\n/* also not a comment */$$", Files.readString(sql));
+    assertEquals(1, result.matchedFiles());
+    assertEquals(1, result.changedFiles());
+  }
+
+  @Test
   void missingDirectoryDoesNothing() throws IOException {
     Path missing = tempDir.resolve("missing");
 

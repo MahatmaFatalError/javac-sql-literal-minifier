@@ -1,9 +1,11 @@
 package io.github.mahatmafatalerror.sqlminify.maven;
 
 import io.github.mahatmafatalerror.sqlminify.SqlFileMinifier;
+import io.github.mahatmafatalerror.sqlminify.SqlMinifier;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -24,6 +26,9 @@ public final class SqlMinifierMojo extends AbstractMojo {
   @Parameter(property = "sqlMinifier.skip", defaultValue = "false")
   boolean skip;
 
+  @Parameter(property = "sqlMinifier.dialect", defaultValue = "standard")
+  String dialect = "standard";
+
   @Override
   public void execute() throws MojoExecutionException {
     if (skip) {
@@ -33,7 +38,8 @@ public final class SqlMinifierMojo extends AbstractMojo {
 
     try {
       SqlFileMinifier.Result result =
-          SqlFileMinifier.minifyDirectory(outputDirectory.toPath(), includes, excludes);
+          SqlFileMinifier.minifyDirectory(
+              outputDirectory.toPath(), includes, excludes, parseDialect(dialect));
       getLog()
           .info(
               "Minified "
@@ -43,6 +49,15 @@ public final class SqlMinifierMojo extends AbstractMojo {
                   + " SQL resource files.");
     } catch (IOException exception) {
       throw new MojoExecutionException("Failed to minify SQL resources.", exception);
+    }
+  }
+
+  private static SqlMinifier.Dialect parseDialect(String dialect) throws MojoExecutionException {
+    String configuredDialect = dialect == null ? "standard" : dialect;
+    try {
+      return SqlMinifier.Dialect.valueOf(configuredDialect.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException exception) {
+      throw new MojoExecutionException("Unsupported SQL dialect: " + configuredDialect, exception);
     }
   }
 }

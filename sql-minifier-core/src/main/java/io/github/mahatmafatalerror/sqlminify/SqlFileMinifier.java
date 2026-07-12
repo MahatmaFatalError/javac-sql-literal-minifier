@@ -18,11 +18,19 @@ public final class SqlFileMinifier {
 
   /** Minifies all SQL files below {@code directory}. */
   public static Result minifyDirectory(Path directory) throws IOException {
-    return minifyDirectory(directory, DEFAULT_INCLUDES, DEFAULT_EXCLUDES);
+    return minifyDirectory(
+        directory, DEFAULT_INCLUDES, DEFAULT_EXCLUDES, SqlMinifier.Dialect.STANDARD);
   }
 
   /** Minifies matching SQL files below {@code directory}. */
   public static Result minifyDirectory(Path directory, List<String> includes, List<String> excludes)
+      throws IOException {
+    return minifyDirectory(directory, includes, excludes, SqlMinifier.Dialect.STANDARD);
+  }
+
+  /** Minifies matching SQL files below {@code directory} using the configured dialect. */
+  public static Result minifyDirectory(
+      Path directory, List<String> includes, List<String> excludes, SqlMinifier.Dialect dialect)
       throws IOException {
     if (!Files.isDirectory(directory)) {
       return new Result(0, 0);
@@ -42,7 +50,7 @@ public final class SqlFileMinifier {
 
         matchedFiles++;
         String original = Files.readString(file, StandardCharsets.UTF_8);
-        String minified = SqlMinifier.minify(original);
+        String minified = SqlMinifier.minify(original, dialect);
         if (!original.equals(minified)) {
           Files.writeString(file, minified, StandardCharsets.UTF_8);
           changedFiles++;

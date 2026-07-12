@@ -109,7 +109,7 @@ The SQL language id is matched case-insensitively and as a complete token, so `S
 Build the `javac` plugin jar:
 
 ```bash
-mvn -pl javac-plugin package
+mvn -pl javac-plugin -am clean package
 ```
 
 Enable it with `javac` by putting the jar on the compiler classpath and passing the plugin name:
@@ -205,6 +205,7 @@ Add the Maven plugin to the build that owns the SQL resources:
     </execution>
   </executions>
   <configuration>
+    <dialect>postgres</dialect>
     <excludes>
       <exclude>**/raw/**</exclude>
     </excludes>
@@ -232,6 +233,7 @@ plugins {
 }
 
 sqlMinifier {
+    dialect = 'postgres'
     excludes = ['**/raw/**']
 }
 ```
@@ -245,12 +247,20 @@ plugins {
 }
 
 sqlMinifier {
+    dialect.set("postgres")
     excludes.set(listOf("**/raw/**"))
 }
 ```
 
 The plugin registers `minifySqlResources` and `minifyTestSqlResources`, then wires them after
 `processResources` and `processTestResources`.
+
+For local snapshot testing, publish the Gradle plugin marker first and include `mavenLocal()` in
+the consuming build's `pluginManagement.repositories`:
+
+```bash
+gradle :gradle-plugin:publishToMavenLocal
+```
 
 ## Modules
 

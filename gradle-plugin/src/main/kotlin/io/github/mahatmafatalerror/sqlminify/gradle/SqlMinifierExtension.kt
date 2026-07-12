@@ -10,4 +10,5 @@ open class SqlMinifierExtension @Inject constructor(objects: ObjectFactory) {
     val includes: ListProperty<String> =
         objects.listProperty(String::class.java).convention(listOf("**/*.sql", "*.sql"))
     val excludes: ListProperty<String> = objects.listProperty(String::class.java).convention(emptyList())
+    val dialect: Property<String> = objects.property(String::class.java).convention("standard")
 }

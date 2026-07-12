@@ -1,6 +1,7 @@
 package io.github.mahatmafatalerror.sqlminify.gradle
 
 import io.github.mahatmafatalerror.sqlminify.SqlFileMinifier
+import io.github.mahatmafatalerror.sqlminify.SqlMinifier
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
@@ -24,6 +25,9 @@ abstract class SqlMinifierTask : DefaultTask() {
     @get:Input
     abstract val minificationEnabled: Property<Boolean>
 
+    @get:Input
+    abstract val dialect: Property<String>
+
     @TaskAction
     fun minify() {
         if (!minificationEnabled.get()) {
@@ -32,7 +36,13 @@ abstract class SqlMinifierTask : DefaultTask() {
         }
 
         val directory = resourceDirectory.asFile.get().toPath()
-        val result = SqlFileMinifier.minifyDirectory(directory, includes.get(), excludes.get())
+        val result =
+            SqlFileMinifier.minifyDirectory(
+                directory,
+                includes.get(),
+                excludes.get(),
+                SqlMinifier.Dialect.valueOf(dialect.get().uppercase()),
+            )
         logger.info("Minified ${result.changedFiles()} of ${result.matchedFiles()} SQL resource files.")
     }
 }

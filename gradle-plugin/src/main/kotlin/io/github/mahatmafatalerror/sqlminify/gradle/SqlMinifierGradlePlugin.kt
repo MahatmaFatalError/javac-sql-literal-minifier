@@ -19,6 +19,7 @@ class SqlMinifierGradlePlugin : Plugin<Project> {
                     it.includes.set(extension.includes)
                     it.excludes.set(extension.excludes)
                     it.minificationEnabled.set(extension.enabled)
+                    it.dialect.set(extension.dialect)
                 }
 
             val minifyTest =
@@ -30,6 +31,7 @@ class SqlMinifierGradlePlugin : Plugin<Project> {
                     it.includes.set(extension.includes)
                     it.excludes.set(extension.excludes)
                     it.minificationEnabled.set(extension.enabled)
+                    it.dialect.set(extension.dialect)
                 }
 
             project.tasks.named(JavaPlugin.CLASSES_TASK_NAME).configure {
