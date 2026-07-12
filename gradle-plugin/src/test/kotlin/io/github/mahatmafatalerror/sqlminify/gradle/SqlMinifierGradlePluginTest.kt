@@ -109,7 +109,8 @@ class SqlMinifierGradlePluginTest {
     }
 
     private fun gradle(vararg arguments: String) =
-        GradleRunner.create()
+        GradleRunner
+            .create()
             .withProjectDir(projectDir.toFile())
             .withArguments(*arguments, "--stacktrace")
             .withPluginClasspath()

@@ -7,7 +7,9 @@ import javax.inject.Inject
 
 open class SqlMinifierExtension
     @Inject
-    constructor(objects: ObjectFactory) {
+    constructor(
+        objects: ObjectFactory,
+    ) {
         val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
         val includes: ListProperty<String> =
             objects.listProperty(String::class.java).convention(listOf("**/*.sql", "*.sql"))
