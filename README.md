@@ -1,10 +1,17 @@
 # JavaC SQL Literal Minifier
 
-A `javac` plugin that minifies marked SQL text block literals in compiled code.
+A small toolkit for minifying SQL that is shipped with Java applications.
 
-It transforms only compiled constants; it does not rewrite source files. The plugin runs after
-`javac` has parsed the source and before bytecode generation, so your Java files keep their
-formatted SQL while the compiled class contains the compact string value.
+It currently provides:
+
+- a `javac` plugin that minifies marked SQL text block literals in compiled code
+- a Maven plugin that minifies copied `.sql` resources in `target/classes`
+- a Gradle plugin that minifies copied `.sql` resources in `build/resources/main` and
+  `build/resources/test`
+
+Source files are not rewritten. Java sources keep their formatted text blocks, and resource files
+under `src/main/resources` or `src/test/resources` stay untouched. Only compiler output or copied
+resource output is compacted.
 
 ## Why?
 
@@ -97,18 +104,18 @@ String sql = """
 The SQL language id is matched case-insensitively and as a complete token, so `SQL` matches but
 `sqlx` does not.
 
-## Usage
+## Java Text Blocks
 
-Build the plugin jar:
+Build the `javac` plugin jar:
 
 ```bash
-mvn package
+mvn -pl javac-plugin package
 ```
 
 Enable it with `javac` by putting the jar on the compiler classpath and passing the plugin name:
 
 ```bash
-javac -cp target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
+javac -cp javac-plugin/target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
   -Xplugin:SqlLiteralMinifier \
   Example.java
 ```
@@ -116,7 +123,7 @@ javac -cp target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
 Plugin options are appended after the plugin name:
 
 ```bash
-javac -cp target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
+javac -cp javac-plugin/target/javac-sql-literal-minifier-0.1.0-SNAPSHOT.jar \
   '-Xplugin:SqlLiteralMinifier dialect=postgres report' \
   Example.java
 ```
@@ -168,12 +175,110 @@ tasks.withType<JavaCompile>().configureEach {
 Because the plugin uses `javac` internals, consumers may need to keep these `jdk.compiler`
 `--add-exports` options aligned with the JDK and plugin version they compile with.
 
+## SQL Resource Files
+
+The Maven and Gradle plugins minify copied `.sql` resource files after the normal resource copy
+step. This keeps source resources readable while ensuring the packaged classes/resources contain
+the compact SQL.
+
+By default, both plugins include:
+
+- `**/*.sql`
+- `*.sql`
+
+Excludes are empty by default. Include and exclude patterns use Java NIO glob syntax.
+
+### Maven Plugin
+
+Add the Maven plugin to the build that owns the SQL resources:
+
+```xml
+<plugin>
+  <groupId>io.github.mahatmafatalerror</groupId>
+  <artifactId>sql-minifier-maven-plugin</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <executions>
+    <execution>
+      <goals>
+        <goal>resources</goal>
+      </goals>
+    </execution>
+  </executions>
+  <configuration>
+    <excludes>
+      <exclude>**/raw/**</exclude>
+    </excludes>
+  </configuration>
+</plugin>
+```
+
+The goal runs in `process-classes` by default and minifies files below
+`${project.build.outputDirectory}`. You can skip it with:
+
+```bash
+mvn package -DsqlMinifier.skip=true
+```
+
+### Gradle Plugin
+
+The Gradle plugin works with both Groovy DSL and Kotlin DSL builds.
+
+Groovy DSL:
+
+```groovy
+plugins {
+    id 'java'
+    id 'io.github.mahatmafatalerror.sql-minifier' version '0.1.0-SNAPSHOT'
+}
+
+sqlMinifier {
+    excludes = ['**/raw/**']
+}
+```
+
+Kotlin DSL:
+
+```kotlin
+plugins {
+    java
+    id("io.github.mahatmafatalerror.sql-minifier") version "0.1.0-SNAPSHOT"
+}
+
+sqlMinifier {
+    excludes.set(listOf("**/raw/**"))
+}
+```
+
+The plugin registers `minifySqlResources` and `minifyTestSqlResources`, then wires them after
+`processResources` and `processTestResources`.
+
+## Modules
+
+- `sql-minifier-core`: shared SQL minification and file-resource logic
+- `javac-plugin`: Java compiler plugin for marked text block literals
+- `maven-plugin`: Maven wrapper around the core resource minifier
+- `gradle-plugin`: Gradle wrapper around the core resource minifier
+- `integration-tests`: external Maven plugin integration test project
+
 ## Development
 
 Run the test suite:
 
 ```bash
 mvn verify
+```
+
+Run the Gradle plugin tests:
+
+```bash
+gradle :gradle-plugin:test
+```
+
+Run the external Maven plugin integration test:
+
+```bash
+mvn install -DskipTests
+mvn -pl integration-tests -DrunIntegrationTests=true test
 ```
 
 Run formatting and style checks:
