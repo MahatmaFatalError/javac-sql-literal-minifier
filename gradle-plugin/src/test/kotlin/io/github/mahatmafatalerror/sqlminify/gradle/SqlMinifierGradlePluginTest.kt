@@ -9,7 +9,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SqlMinifierGradlePluginTest {
-
     @TempDir
     lateinit var projectDir: Path
 
@@ -116,7 +115,10 @@ class SqlMinifierGradlePluginTest {
             .withPluginClasspath()
             .build()
 
-    private fun write(relativePath: String, content: String): Path {
+    private fun write(
+        relativePath: String,
+        content: String,
+    ): Path {
         val file = projectDir.resolve(relativePath)
         Files.createDirectories(file.parent)
         Files.writeString(file, content)

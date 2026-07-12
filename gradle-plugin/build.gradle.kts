@@ -4,6 +4,7 @@ plugins {
     `java-gradle-plugin`
     kotlin("jvm") version "2.1.21"
     `maven-publish`
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
 }
 
 java {
