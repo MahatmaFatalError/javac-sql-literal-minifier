@@ -270,6 +270,28 @@ gradle :gradle-plugin:publishToMavenLocal
 - `gradle-plugin`: Gradle wrapper around the core resource minifier
 - `integration-tests`: external Maven plugin integration test project
 
+## Architecture
+
+```text
+                     +--------------------+
+                     | sql-minifier-core  |
+                     | Java: parser/minify|
+                     +---------+----------+
+                               |
+              +----------------+----------------+
+              |                |                |
+     +--------v-------+ +------v-------+ +------v--------+
+     | javac-plugin   | | maven-plugin | | gradle-plugin |
+     | Compiler Hook  | | Resource Mojo| | Kotlin/TestKit|
+     +--------+-------+ +------+-------+ +------+--------+
+              |                |                |
+              |                |
+              |                +--> integration-tests
+              |                     external Maven consumer
+              |
+              +--> Java compilation
+```
+
 ## Development
 
 Run the test suite:
@@ -278,10 +300,10 @@ Run the test suite:
 mvn verify
 ```
 
-Run the Gradle plugin tests:
+Run the Gradle plugin tests and Kotlin style checks:
 
 ```bash
-gradle :gradle-plugin:test
+./gradlew :gradle-plugin:check
 ```
 
 Run the external Maven plugin integration test:
@@ -296,3 +318,15 @@ Run formatting and style checks:
 ```bash
 mvn spotless:check checkstyle:check
 ```
+
+## CI Quality Gates
+
+The GitHub Actions pipeline has three independent jobs:
+
+- Maven verification: all Maven module tests, Checkstyle, Spotless, and per-module JaCoCo checks.
+- Gradle plugin: Gradle TestKit tests for both Groovy and Kotlin DSL builds plus `ktlintCheck`.
+- Maven integration test: installs the local reactor artifacts, then runs the external Maven
+  consumer test with `-DrunIntegrationTests=true`.
+
+JaCoCo enforces at least 80% line coverage and 70% branch coverage for each productive Java
+module. Reports are written below the respective `target/site/jacoco` directory.
