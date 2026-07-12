@@ -13,12 +13,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 25
+      - name: Set up JDK 17 for Gradle
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and lint Gradle plugin
+        run: ./gradlew :gradle-plugin:check
+
+      - name: Set up JDK 25 for Maven
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: maven
+
+      - name: Verify Maven modules
+        run: ./mvnw clean verify
+
+      - name: Install integration test artifacts
+        run: ./mvnw install -DskipTests
+
+      - name: Run external Maven integration test
+        run: ./mvnw -pl integration-tests -DrunIntegrationTests=true test
 
       - name: Publish package
         run: ./mvnw deploy -DskipTests
